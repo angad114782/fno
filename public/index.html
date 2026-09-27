@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>F&amp;O Trade Reporter</title>
+  <link rel="icon" href="data:," />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header>
+    <h1>F&amp;O Trade Reporter</h1>
+    <div class="head-actions">
+      <span id="dbStatus" class="dot" title="DB status"></span>
+      <button id="btnKey" class="ghost">API Key</button>
+    </div>
+  </header>
+
+  <main>
+    <!-- Filters + summary -->
+    <section class="card">
+      <div class="row between">
+        <h2>Summary</h2>
+        <form id="filterForm" class="inline">
+          <label>From <input type="date" name="from" /></label>
+          <label>To <input type="date" name="to" /></label>
+          <select name="underlying" id="filterUnderlying"><option value="">All</option></select>
+          <button type="submit">Apply</button>
+          <button type="button" id="btnToday" class="ghost">Today</button>
+          <button type="button" id="btnCsv" class="ghost">Export CSV</button>
+          <button type="button" id="btnTg" class="ghost">Send Telegram</button>
+        </form>
+      </div>
+      <div id="summary" class="stats"></div>
+    </section>
+
+    <!-- New trade -->
+    <section class="card">
+      <h2>New Trade</h2>
+      <form id="tradeForm" class="grid">
+        <label>Underlying
+          <input name="underlying" list="instrumentList" required placeholder="NIFTY / RELIANCE" autocomplete="off" />
+          <datalist id="instrumentList"></datalist>
+        </label>
+        <label>Segment
+          <select name="segment"><option value="OPT">Option</option><option value="FUT">Future</option></select>
+        </label>
+        <label class="opt">Option Type
+          <select name="optionType"><option>CE</option><option>PE</option></select>
+        </label>
+        <label class="opt">Strike <input name="strike" type="number" step="any" /></label>
+        <label>Expiry <input name="expiry" type="date" required /></label>
+        <label>Side
+          <select name="side"><option value="BUY">BUY</option><option value="SELL">SELL</option></select>
+        </label>
+        <label>Lots <input name="lots" type="number" min="1" step="1" value="1" required /></label>
+        <label>Lot Size <input name="lotSize" type="number" min="1" step="1" placeholder="auto" /></label>
+        <label>Entry <input name="entryPrice" type="number" step="any" required /></label>
+        <label>Stop Loss <input name="stopLoss" type="number" step="any" /></label>
+        <label>Target 1 <input name="target1" type="number" step="any" /></label>
+        <label>Target 2 <input name="target2" type="number" step="any" /></label>
+        <label>Entry Time <input name="entryTime" type="datetime-local" /></label>
+        <label>Strategy <input name="strategy" placeholder="Breakout / ORB ..." /></label>
+        <label>Tags <input name="tags" placeholder="comma,separated" /></label>
+        <label class="wide">Notes <input name="notes" /></label>
+        <div class="wide row between">
+          <span id="rrPreview" class="muted"></span>
+          <button type="submit">Add Trade</button>
+        </div>
+      </form>
+      <p id="formError" class="error"></p>
+    </section>
+
+    <!-- Open trades -->
+    <section class="card">
+      <div class="row between">
+        <h2>Open Trades</h2>
+        <button id="btnRefresh" class="ghost">Refresh</button>
+      </div>
+      <div class="table-wrap"><table id="openTable"></table></div>
+    </section>
+
+    <!-- History -->
+    <section class="card">
+      <h2>Trade History</h2>
+      <div class="table-wrap"><table id="closedTable"></table></div>
+    </section>
+
+    <section class="two-col">
+      <div class="card">
+        <h2>Daily P&amp;L</h2>
+        <div class="table-wrap"><table id="dailyTable"></table></div>
+      </div>
+      <div class="card">
+        <h2>By Underlying</h2>
+        <div class="table-wrap"><table id="underlyingTable"></table></div>
+      </div>
+    </section>
+  </main>
+
+  <div id="toast"></div>
+  <script src="app.js"></script>
+</body>
+</html>
