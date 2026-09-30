@@ -4,7 +4,7 @@ const exitSchema = new mongoose.Schema(
   {
     price: { type: Number, required: true, min: 0 },
     quantity: { type: Number, required: true, min: 1 },
-    reason: { type: String, enum: ['TP1', 'TP2', 'SL', 'TRAIL_SL', 'MANUAL'], required: true },
+    reason: { type: String, enum: ['TP1', 'TP2', 'SL', 'TRAIL_SL', 'MANUAL', 'EOD'], required: true },
     time: { type: Date, default: Date.now },
     pnl: { type: Number, default: 0 },
   },
@@ -22,6 +22,7 @@ const tradeSchema = new mongoose.Schema(
     strike: { type: Number, default: null },
     expiry: { type: Date, required: true },
     tradingSymbol: { type: String, index: true },
+    instrumentKey: { type: String, default: null }, // Upstox key (live LTP ke liye)
 
     // Position
     side: { type: String, enum: ['BUY', 'SELL'], required: true },
@@ -75,7 +76,7 @@ const tradeSchema = new mongoose.Schema(
     strategy: { type: String, trim: true },
     tags: [{ type: String, trim: true }],
     notes: { type: String, trim: true },
-    source: { type: String, enum: ['MANUAL', 'WEBHOOK'], default: 'MANUAL' },
+    source: { type: String, enum: ['MANUAL', 'WEBHOOK', 'SIGNAL'], default: 'MANUAL' },
   },
   { timestamps: true }
 );

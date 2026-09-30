@@ -19,12 +19,15 @@ app.get('/api/health', (req, res) =>
 
 // Webhook uses its own secret, not the API key
 app.use('/api/webhook', require('./routes/webhook'));
+// Upstox OAuth redirect browser se aata hai (API key header nahi hota)
+app.use('/auth/upstox', require('./routes/upstoxAuth'));
 
 app.use('/api', apiKeyAuth);
 app.use('/api/instruments', require('./routes/instruments'));
 app.use('/api/trades', require('./routes/trades'));
 app.use('/api/prices', require('./routes/prices'));
 app.use('/api/reports', require('./routes/reports'));
+app.use('/api', require('./routes/market'));
 
 app.use('/api', (req, res) => res.status(404).json({ error: 'Not found' }));
 app.use(express.static(path.join(__dirname, '..', 'public')));

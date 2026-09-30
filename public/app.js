@@ -248,7 +248,7 @@
     try {
       const t = await api('/trades', { method: 'POST', body });
       toast(`Added: ${t.side} ${t.tradingSymbol}`);
-      ['strike', 'entryPrice', 'stopLoss', 'target1', 'target2', 'notes', 'entryTime'].forEach((k) => (tradeForm[k].value = ''));
+      ['strike', 'entryPrice', 'stopLoss', 'target1', 'target2', 'notes', 'entryTime', 'instrumentKey'].forEach((k) => (tradeForm[k].value = ''));
       rrPreview();
       loadAll();
     } catch (err) {
@@ -350,8 +350,8 @@
 
   $('#btnTg').addEventListener('click', async () => {
     try {
-      await api('/reports/telegram', { method: 'POST', body: {} });
-      toast('Telegram report sent');
+      await api('/reports/whatsapp', { method: 'POST', body: {} });
+      toast('WhatsApp report sent');
     } catch (err) {
       toast(err.message);
     }
@@ -362,4 +362,16 @@
 
   toggleOptFields();
   loadAll();
+
+  // Signals / backtest tab (market.js) ke liye shared helpers
+  window.fno = {
+    api, toast, esc, inr, cls, v, fmtDate, loadAll,
+    fillTrade(plan) {
+      Object.entries(plan).forEach(([k, val]) => {
+        if (tradeForm[k] && val != null) tradeForm[k].value = val;
+      });
+      toggleOptFields();
+      rrPreview();
+    },
+  };
 })();

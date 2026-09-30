@@ -24,9 +24,9 @@ router.get(
 );
 
 router.post(
-  '/telegram',
+  '/whatsapp',
   ah(async (req, res) => {
-    if (!notifier.enabled()) throw new HttpError(400, 'Telegram not configured (TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID)');
+    if (!notifier.enabled()) throw new HttpError(400, 'WhatsApp not configured (WHATSAPP_TOKEN / WHATSAPP_PHONE_NUMBER_ID / WHATSAPP_TO)');
     res.json({ sent: await svc.sendDayReport(req.body.date) });
   })
 );

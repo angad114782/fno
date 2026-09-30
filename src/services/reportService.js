@@ -62,7 +62,7 @@ async function dayReport(dateStr) {
 
 async function sendDayReport(dateStr) {
   const { date, summary } = await dayReport(dateStr);
-  return notifier.sendTelegram(notifier.summaryMsg(`Day Report ${date}`, summary));
+  return notifier.send(notifier.summaryMsg(`Day Report ${date}`, summary));
 }
 
 const CSV_COLUMNS = [

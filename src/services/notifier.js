@@ -1,20 +1,57 @@
-// Telegram alerts (optional). Token/chat id na ho to silently skip.
+// WhatsApp Cloud API alerts (optional). Token / phone number id / "to" na ho to silently skip.
+// Business-initiated message ke liye approved template chahiye: har line ek body param ({{1}}..{{N}}) me jaati hai,
+// aakhri param me baaki saari lines. WhatsApp param me newline/tab allowed nahi, isliye " · " se jodte hain.
 const config = require('../config/env');
 
-const enabled = () => Boolean(config.telegram.token && config.telegram.chatId);
+const wa = config.whatsapp;
+const enabled = () => Boolean(wa.token && wa.phoneNumberId && wa.to.length);
 
-async function sendTelegram(text) {
+// Telegram-style HTML text -> plain lines
+const plainLines = (text) =>
+  String(text)
+    .replace(/<[^>]+>/g, '')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&amp;/g, '&')
+    .split('\n')
+    .map((l) => l.replace(/\s+/g, ' ').trim())
+    .filter(Boolean);
+
+function templateParams(text, n = wa.templateParams) {
+  const lines = plainLines(text);
+  const out = lines.slice(0, n - 1);
+  out.push(lines.slice(n - 1).join(' · '));
+  while (out.length < n) out.push('-');
+  return out.map((x) => (x || '-').slice(0, 300));
+}
+
+async function sendOne(to, text) {
+  const body = {
+    messaging_product: 'whatsapp',
+    to,
+    type: 'template',
+    template: {
+      name: wa.template,
+      language: { code: wa.language },
+      components: [{ type: 'body', parameters: templateParams(text).map((t) => ({ type: 'text', text: t })) }],
+    },
+  };
+  const res = await fetch(`https://graph.facebook.com/${wa.apiVersion}/${wa.phoneNumberId}/messages`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${wa.token}` },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) console.error('WhatsApp error:', res.status, await res.text());
+  return res.ok;
+}
+
+async function send(text) {
   if (!enabled()) return false;
   try {
-    const res = await fetch(`https://api.telegram.org/bot${config.telegram.token}/sendMessage`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ chat_id: config.telegram.chatId, text, parse_mode: 'HTML' }),
-    });
-    if (!res.ok) console.error('Telegram error:', res.status, await res.text());
-    return res.ok;
+    const r = await Promise.all(wa.to.map((to) => sendOne(to, text)));
+    return r.every(Boolean);
   } catch (err) {
-    console.error('Telegram error:', err.message);
+    console.error('WhatsApp error:', err.message);
     return false;
   }
 }
@@ -67,4 +104,4 @@ function summaryMsg(title, s) {
   ].join('\n');
 }
 
-module.exports = { enabled, sendTelegram, tradeCreatedMsg, eventMsg, summaryMsg, inr };
+module.exports = { enabled, send, templateParams, tradeCreatedMsg, eventMsg, summaryMsg, inr };

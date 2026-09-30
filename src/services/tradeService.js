@@ -11,7 +11,7 @@ const toNum = (v) => (v === undefined || v === null || v === '' ? undefined : Nu
 const toNullableNum = (v) => (v === null || v === '' ? null : toNum(v));
 
 function notifyEvents(trade, events) {
-  for (const ev of events) notifier.sendTelegram(notifier.eventMsg(trade, ev));
+  for (const ev of events) notifier.send(notifier.eventMsg(trade, ev));
 }
 
 async function findTrade(id) {
@@ -44,6 +44,7 @@ async function createTrade(input, { source = 'MANUAL' } = {}) {
     strategy: input.strategy,
     tags: Array.isArray(input.tags) ? input.tags : input.tags ? String(input.tags).split(',').map((s) => s.trim()) : [],
     notes: input.notes,
+    instrumentKey: input.instrumentKey || null,
     source,
   };
 
@@ -57,7 +58,7 @@ async function createTrade(input, { source = 'MANUAL' } = {}) {
   engine.initTrade(data);
   engine.recompute(data, rules());
   const trade = await Trade.create(data);
-  notifier.sendTelegram(notifier.tradeCreatedMsg(trade));
+  notifier.send(notifier.tradeCreatedMsg(trade));
   return trade;
 }
 
@@ -190,6 +191,7 @@ module.exports = {
   updateTrade,
   exitTrade,
   cancelTrade,
+  priceUpdate,
   priceUpdateById,
   priceUpdateBySymbol,
   buildFilter,

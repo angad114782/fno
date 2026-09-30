@@ -3,96 +3,313 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>F&amp;O Trade Reporter</title>
+  <title>F&amp;O Desk</title>
   <link rel="icon" href="data:," />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" />
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <header>
-    <h1>F&amp;O Trade Reporter</h1>
+  <header class="topbar">
+    <div class="brand">F&amp;O Desk</div>
     <div class="head-actions">
-      <span id="dbStatus" class="dot" title="DB status"></span>
-      <button id="btnKey" class="ghost">API Key</button>
+      <a id="btnUpstox" class="pill" href="/auth/upstox/login" title="Upstox connection">
+        <span class="dot" id="upDot"></span><span id="upstoxStatus">Upstox</span>
+      </a>
+      <span id="dbStatus" class="dot" title="Database"></span>
+      <button id="btnKey" class="icon-btn" title="API key">🔑</button>
     </div>
   </header>
 
+  <nav class="tabs" id="tabs">
+    <button data-tab="picks" class="active">📅 Picks</button>
+    <button data-tab="journal">📒 Journal</button>
+    <button data-tab="adv">⚙️ Advanced</button>
+  </nav>
+
   <main>
-    <!-- Filters + summary -->
-    <section class="card">
-      <div class="row between">
-        <h2>Summary</h2>
-        <form id="filterForm" class="inline">
-          <label>From <input type="date" name="from" /></label>
-          <label>To <input type="date" name="to" /></label>
-          <select name="underlying" id="filterUnderlying"><option value="">All</option></select>
-          <button type="submit">Apply</button>
-          <button type="button" id="btnToday" class="ghost">Today</button>
-          <button type="button" id="btnCsv" class="ghost">Export CSV</button>
-          <button type="button" id="btnTg" class="ghost">Send Telegram</button>
-        </form>
+    <!-- ================= PICKS ================= -->
+    <section class="card" data-pane="picks">
+      <div class="card-head">
+        <div>
+          <h2>Trade picks</h2>
+          <p class="muted sm" style="margin:2px 0 0">Date chuno, option kis premium pe lena hai, SL / target pe kitna paisa</p>
+        </div>
       </div>
+      <form id="pkForm" class="fields">
+        <label>Date <input name="date" type="date" required /></label>
+        <label>Kya scan karna hai
+          <select name="universe"><option value="index">Index (7)</option><option value="stocks">F&amp;O Stocks (~210)</option><option value="all">Sab</option></select>
+        </label>
+        <label>Strategy
+          <select name="strat"><option value="orb" selected>ORB 30 min</option><option value="scalp">Momentum Scalp 3 min</option><option value="sweep">Liquidity Sweep (SMC) 5 min</option><option value="trend">Trend (strict)</option></select>
+        </label>
+        <label>Lots
+          <select name="lots">
+            <option value="auto" selected>Auto (risk rule)</option>
+            <option value="1">1 lot</option><option value="2">2 lots</option><option value="3">3 lots</option>
+            <option value="5">5 lots</option><option value="10">10 lots</option>
+          </select>
+        </label>
+        <label>Dikhao
+          <select name="show"><option value="best" selected>⭐ Sirf BEST</option><option value="all">Saare signals</option></select>
+        </label>
+        <button type="submit" id="pkRun">🔍 Scan</button>
+      </form>
+      <p class="muted sm">Premium = option ka asli bhav (signal ke baad wala candle). Entry amount = LTP × lot size × lots. SL / target amount me charges (brokerage, STT, GST…) ka andaza ghata hai. Auto lots = SL loss aapke "risk per trade" ke andar. <b>⭐ BEST</b> = teeno flags hare + option liquid + 11:00 se pehle (sab entry ke waqt pata hota hai). ORB pe pichhle 60 din (Jul–Sep 2026): saare signals −₹1.05 lakh, sirf BEST +₹41k (56 trades, 55% win, 1 lot, charges ke baad). Guarantee nahi, SL hamesha lagao.</p>
+      <p id="pkError" class="error"></p>
+    </section>
+    <section data-pane="picks" id="pkResult"></section>
+
+    <section class="card" data-pane="picks">
+      <div class="card-head">
+        <h2>📝 Paper trading (bina paisa)</h2>
+        <span class="muted sm">roz 3:35 PM apne aap record</span>
+      </div>
+      <form id="ppForm" class="fields">
+        <label>Kya
+          <select name="universe"><option value="index">Index</option><option value="stocks">F&amp;O Stocks</option><option value="all">Sab</option></select>
+        </label>
+        <label>Strategy
+          <select name="strat"><option value="orb">ORB 30 min</option><option value="trend">Trend (strict)</option></select>
+        </label>
+        <button type="button" id="ppFill">Pichhle 30 din bharo</button>
+        <button type="button" id="ppClear" class="ghost">Clear</button>
+      </form>
+      <p class="muted sm">Har din ka sirf "⭐ pehla signal", 1 lot, option P&amp;L andaza (index move × 0.5) − asli charges. Stocks me max 10 din.</p>
+      <div id="ppBox"></div>
+    </section>
+
+    <!-- ================= SIGNALS ================= -->
+        <section class="card risk-card" data-pane="signals" id="riskCard">
+      <div class="card-head">
+        <h2>🛡️ Capital protection</h2>
+        <span class="state-pill" id="riskState">…</span>
+      </div>
+      <div id="riskBody" class="stats"></div>
+      <div id="riskReasons"></div>
+      <details id="rulesBox">
+        <summary class="sm">Rules badlo</summary>
+        <form id="rulesForm" class="fields" style="margin-top:10px">
+          <label>Capital kahan se
+            <select name="capitalSource"><option value="upstox">Upstox balance (auto)</option><option value="manual">Main khud likhunga</option></select>
+          </label>
+          <label>Capital (₹, manual) <input name="capital" type="number" min="1000" step="1000" /></label>
+          <label>Risk / trade (%) <input name="riskPct" type="number" min="0.1" max="10" step="0.1" /></label>
+          <label>Max trades / din <input name="maxTradesPerDay" type="number" min="1" max="50" step="1" /></label>
+          <label>Din ka max loss (%) <input name="dailyLossPct" type="number" min="0.5" max="50" step="0.5" /></label>
+          <label>Mahine ka max loss (%) <input name="monthlyLossPct" type="number" min="1" max="100" step="1" /></label>
+          <label>Expiry day pe next expiry
+            <select name="noExpiryDay"><option value="true">Haan</option><option value="false">Nahi</option></select>
+          </label>
+          <button type="submit">Save</button>
+        </form>
+      </details>
+    </section>
+
+    <section class="card" data-pane="signals">
+      <div class="card-head">
+        <h2>Aaj kya trade lein?</h2>
+        <span class="muted sm" id="marketState"></span>
+      </div>
+      <form id="analyzeForm" class="fields">
+        <label class="grow">Symbol
+          <input name="symbol" list="symbolList" placeholder="NIFTY / BANKNIFTY / RELIANCE" required autocomplete="off" />
+        </label>
+        <label>Timeframe
+          <select name="interval"><option value="1">1 min</option><option value="3" selected>3 min</option><option value="5">5 min</option><option value="15">15 min</option></select>
+        </label>
+        <label>Strategy
+          <select name="strategy"><option value="scalp">Momentum Scalp</option><option value="sweep">Liquidity Sweep (SMC)</option><option value="trend">Trend (strict)</option><option value="orb">ORB</option><option value="pdhl">PDH/PDL</option><option value="vwaprev">VWAP reversion</option></select>
+        </label>
+        <button type="submit">Analyze</button>
+      </form>
+      <datalist id="symbolList"></datalist>
+      <div id="analysis"></div>
+    </section>
+
+    <section class="card" data-pane="signals">
+      <div class="card-head"><h2>Scanner</h2></div>
+      <form id="scanForm" class="fields">
+        <label class="grow">Symbols (comma se alag)
+          <input name="symbols" id="scanSymbols" placeholder="NIFTY,BANKNIFTY,RELIANCE" />
+        </label>
+        <button type="submit">Scan</button>
+      </form>
+      <div id="scanList" class="list"></div>
+      <p class="muted sm">Rule-based signals hain, guarantee ya investment advice nahi. Har trade me SL zaroor lagao.</p>
+    </section>
+
+    <!-- ================= BACKTEST ================= -->
+    <section class="card" data-pane="backtest" hidden>
+      <div class="card-head"><h2>🎯 Asli option backtest (real premium)</h2></div>
+      <p class="muted sm" style="margin-top:-6px">Expire ho chuke options ka <b>asli 5-min price</b> (Upstox) · Oct 2024 se · asli charges · asli margin</p>
+      <form id="obForm" class="fields">
+        <label>Symbol
+          <select name="symbol"><option>NIFTY</option><option>SENSEX</option></select>
+        </label>
+        <label>From <input name="from" type="date" required /></label>
+        <label>To <input name="to" type="date" required /></label>
+        <label class="grow">Setup
+          <select name="preset">
+            <option value="ifExpiry">Iron Fly · sirf expiry day (hafte me 1)</option>
+            <option value="ifDaily">Iron Fly · roz 9:20</option>
+            <option value="orbBuy">ORB 30m · option BUY</option>
+          </select>
+        </label>
+        <label>Lots <input name="lots" type="number" min="1" value="1" /></label>
+        <button type="submit" id="obRun">▶ Run</button>
+        <details class="full">
+          <summary>Expert settings</summary>
+          <div class="fields">
+            <label>Wing (points) <input name="wing" type="number" step="50" placeholder="300" /></label>
+            <label>SL % (har leg) <input name="slPct" type="number" step="5" placeholder="30" /></label>
+            <label>SL type
+              <select name="slMode"><option value="leg">Har leg alag</option><option value="combined">Poori position (combined)</option></select>
+            </label>
+            <label>Combined SL % <input name="combinedSlPct" type="number" step="10" placeholder="50" /></label>
+            <label>Entry time <input name="entryTime" type="time" value="09:20" /></label>
+          </div>
+        </details>
+      </form>
+      <p id="obError" class="error"></p>
+      <div id="obResult"></div>
+    </section>
+
+    <section class="card" data-pane="backtest" hidden>
+      <div class="card-head"><h2>Indicator strategy backtest (andaza)</h2></div>
+      <form id="btForm" class="fields">
+        <label class="grow">Symbol
+          <input name="symbol" list="symbolList" value="NIFTY" required autocomplete="off" />
+        </label>
+        <div class="seg" role="radiogroup" aria-label="Test type">
+          <label><input type="radio" name="span" value="day" checked /><span>Ek din</span></label>
+          <label><input type="radio" name="span" value="range" /><span>Date range</span></label>
+        </div>
+        <label>Date <input name="from" type="date" required /></label>
+        <label class="range-only" hidden>To <input name="to" type="date" /></label>
+        <label>Timeframe
+          <select name="interval"><option value="1">1 min</option><option value="3">3 min</option><option value="5" selected>5 min</option><option value="15">15 min</option></select>
+        </label>
+        <label>Strategy
+          <select name="p_strategy">
+            <option value="scalp">Momentum Scalp (3 min chuno)</option><option value="sweep">Liquidity Sweep (SMC)</option><option value="trend" selected>Trend (strict)</option><option value="orb">ORB</option>
+            <option value="pdhl">PDH/PDL breakout</option><option value="vwaprev">VWAP reversion</option>
+          </select>
+        </label>
+        <label>Max lots <input name="lots" type="number" min="1" value="1" /></label>
+        <button type="submit" id="btRun">▶ Run</button>
+        <p class="full muted sm auto-line" id="btAuto">Upstox se apne aap: lot size, delta, slippage, charges…</p>
+        <details class="full">
+          <summary>Expert settings (badalne ki zaroorat nahi)</summary>
+          <div class="fields">
+            <label>Mode
+              <select name="mode"><option value="OPTION">Option buy</option><option value="FUTURES">Futures</option></select>
+            </label>
+            <label>Option delta <input name="delta" type="number" step="0.05" min="0.1" max="1" placeholder="auto" /></label>
+            <label>Slippage (pts) <input name="slippagePts" type="number" step="any" min="0" placeholder="auto" /></label>
+          </div>
+          <div class="fields" id="btParams"></div>
+          <p class="muted sm">Khali = Upstox se auto. Option premium = delta × index move (andaza). Theta/IV decay shamil nahi.</p>
+        </details>
+      </form>
+      <p id="btError" class="error"></p>
+    </section>
+
+    <section data-pane="backtest" hidden id="btResultCard">
+      <div id="btResult"></div>
+    </section>
+
+    <section class="card" data-pane="backtest" hidden>
+      <div class="card-head">
+        <h2>Purane backtest</h2>
+        <button id="btClear" class="small danger">🗑 Sab clear karo</button>
+      </div>
+      <div id="btRuns" class="list"></div>
+    </section>
+
+    <!-- ================= JOURNAL ================= -->
+    <section class="card" data-pane="journal" hidden>
+      <div class="card-head">
+        <h2>📊 Mera asli record (Upstox)</h2>
+        <button id="btnSyncBroker" class="small">↻ Upstox se sync</button>
+      </div>
+      <div id="brokerBox"><p class="muted sm">Upstox P&amp;L report se tumhare F&amp;O trades (pichhle 3 saal) laa ke analysis. "Sync" dabao.</p></div>
+    </section>
+
+    <section class="card" data-pane="journal" hidden>
+      <div class="card-head"><h2>Summary</h2></div>
+      <form id="filterForm" class="fields">
+        <label>From <input type="date" name="from" /></label>
+        <label>To <input type="date" name="to" /></label>
+        <label>Symbol <select name="underlying" id="filterUnderlying"><option value="">All</option></select></label>
+        <button type="submit">Apply</button>
+        <button type="button" id="btnToday" class="ghost">Today</button>
+        <button type="button" id="btnCsv" class="ghost">CSV</button>
+        <button type="button" id="btnTg" class="ghost">WhatsApp</button>
+      </form>
       <div id="summary" class="stats"></div>
     </section>
 
-    <!-- New trade -->
-    <section class="card">
-      <h2>New Trade</h2>
-      <form id="tradeForm" class="grid">
-        <label>Underlying
-          <input name="underlying" list="instrumentList" required placeholder="NIFTY / RELIANCE" autocomplete="off" />
-          <datalist id="instrumentList"></datalist>
-        </label>
-        <label>Segment
-          <select name="segment"><option value="OPT">Option</option><option value="FUT">Future</option></select>
-        </label>
-        <label class="opt">Option Type
-          <select name="optionType"><option>CE</option><option>PE</option></select>
-        </label>
-        <label class="opt">Strike <input name="strike" type="number" step="any" /></label>
-        <label>Expiry <input name="expiry" type="date" required /></label>
-        <label>Side
-          <select name="side"><option value="BUY">BUY</option><option value="SELL">SELL</option></select>
-        </label>
-        <label>Lots <input name="lots" type="number" min="1" step="1" value="1" required /></label>
-        <label>Lot Size <input name="lotSize" type="number" min="1" step="1" placeholder="auto" /></label>
-        <label>Entry <input name="entryPrice" type="number" step="any" required /></label>
-        <label>Stop Loss <input name="stopLoss" type="number" step="any" /></label>
-        <label>Target 1 <input name="target1" type="number" step="any" /></label>
-        <label>Target 2 <input name="target2" type="number" step="any" /></label>
-        <label>Entry Time <input name="entryTime" type="datetime-local" /></label>
-        <label>Strategy <input name="strategy" placeholder="Breakout / ORB ..." /></label>
-        <label>Tags <input name="tags" placeholder="comma,separated" /></label>
-        <label class="wide">Notes <input name="notes" /></label>
-        <div class="wide row between">
-          <span id="rrPreview" class="muted"></span>
-          <button type="submit">Add Trade</button>
-        </div>
-      </form>
-      <p id="formError" class="error"></p>
+    <section class="card" data-pane="journal" hidden>
+      <details id="newTradeBox">
+        <summary><h2 class="inline-h">＋ New Trade</h2></summary>
+        <form id="tradeForm" class="grid">
+          <input type="hidden" name="instrumentKey" />
+          <label>Underlying
+            <input name="underlying" list="instrumentList" required placeholder="NIFTY / RELIANCE" autocomplete="off" />
+            <datalist id="instrumentList"></datalist>
+          </label>
+          <label>Segment
+            <select name="segment"><option value="OPT">Option</option><option value="FUT">Future</option></select>
+          </label>
+          <label class="opt">Option Type
+            <select name="optionType"><option>CE</option><option>PE</option></select>
+          </label>
+          <label class="opt">Strike <input name="strike" type="number" step="any" /></label>
+          <label>Expiry <input name="expiry" type="date" required /></label>
+          <label>Side
+            <select name="side"><option value="BUY">BUY</option><option value="SELL">SELL</option></select>
+          </label>
+          <label>Lots <input name="lots" type="number" min="1" step="1" value="1" required /></label>
+          <label>Lot Size <input name="lotSize" type="number" min="1" step="1" placeholder="auto" /></label>
+          <label>Entry <input name="entryPrice" type="number" step="any" required /></label>
+          <label>Stop Loss <input name="stopLoss" type="number" step="any" /></label>
+          <label>Target 1 <input name="target1" type="number" step="any" /></label>
+          <label>Target 2 <input name="target2" type="number" step="any" /></label>
+          <label>Entry Time <input name="entryTime" type="datetime-local" /></label>
+          <label>Strategy <input name="strategy" placeholder="Breakout / ORB ..." /></label>
+          <label>Tags <input name="tags" placeholder="comma,separated" /></label>
+          <label class="wide">Notes <input name="notes" /></label>
+          <div class="wide row between">
+            <span id="rrPreview" class="muted sm"></span>
+            <button type="submit">Add Trade</button>
+          </div>
+        </form>
+        <p id="formError" class="error"></p>
+      </details>
     </section>
 
-    <!-- Open trades -->
-    <section class="card">
-      <div class="row between">
+    <section class="card" data-pane="journal" hidden>
+      <div class="card-head">
         <h2>Open Trades</h2>
-        <button id="btnRefresh" class="ghost">Refresh</button>
+        <button id="btnRefresh" class="small ghost">↻ Refresh</button>
       </div>
-      <div class="table-wrap"><table id="openTable"></table></div>
+      <div class="table-wrap"><table id="openTable" class="stack"></table></div>
     </section>
 
-    <!-- History -->
-    <section class="card">
-      <h2>Trade History</h2>
-      <div class="table-wrap"><table id="closedTable"></table></div>
+    <section class="card" data-pane="journal" hidden>
+      <div class="card-head"><h2>Trade History</h2></div>
+      <div class="table-wrap"><table id="closedTable" class="stack"></table></div>
     </section>
 
-    <section class="two-col">
+    <section class="two-col" data-pane="journal" hidden>
       <div class="card">
-        <h2>Daily P&amp;L</h2>
+        <div class="card-head"><h2>Daily P&amp;L</h2></div>
         <div class="table-wrap"><table id="dailyTable"></table></div>
       </div>
       <div class="card">
-        <h2>By Underlying</h2>
+        <div class="card-head"><h2>By Underlying</h2></div>
         <div class="table-wrap"><table id="underlyingTable"></table></div>
       </div>
     </section>
@@ -100,5 +317,6 @@
 
   <div id="toast"></div>
   <script src="app.js"></script>
+  <script src="market.js"></script>
 </body>
 </html>

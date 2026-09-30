@@ -1,4 +1,4 @@
-// Mon-Fri DAILY_REPORT_TIME (report timezone) pe Telegram day report.
+// Mon-Fri DAILY_REPORT_TIME (report timezone) pe WhatsApp day report.
 const config = require('../config/env');
 const notifier = require('./notifier');
 const { sendDayReport } = require('./reportService');
@@ -34,7 +34,7 @@ function startScheduler() {
     }
   }, 30 * 1000);
   timer.unref();
-  console.log(`Daily Telegram report scheduled at ${at} (${config.timezone})`);
+  console.log(`Daily WhatsApp report scheduled at ${at} (${config.timezone})`);
   return timer;
 }
 
